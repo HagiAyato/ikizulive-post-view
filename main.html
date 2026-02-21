@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>いきづらい部！カスタムボード</title>
+    <script src="https://unpkg.com/draggabilly@3/dist/draggabilly.pkgd.min.js"></script>
+    <style>
+        body { background-color: #1a1a1b; color: white; margin: 0; font-family: sans-serif; overflow-x: auto; }
+        .controls {
+            position: fixed; top: 15px; right: 20px; z-index: 9999;
+            background: rgba(0, 0, 0, 0.8); padding: 10px; border-radius: 12px;
+            border: 1px solid #444;
+        }
+        button { cursor: pointer; padding: 10px 20px; border: none; border-radius: 8px; background: #555; color: white; font-weight: bold; }
+        .member-card {
+            width: 320px; background: #fff; border-radius: 16px;
+            position: absolute; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 10; border: 4px solid transparent;
+        }
+        .handle {
+            padding: 12px; cursor: move; font-weight: bold; text-align: center;
+            user-select: none; color: #333; border-radius: 12px 12px 0 0;
+            font-size: 1.1em;
+        }
+        /* 文字が見えにくい色の場合の調整 */
+        .handle.dark-text { color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
+        .satellite-label { display: block; font-size: 10px; font-weight: normal; margin-bottom: 2px; }
+        .timeline-wrapper { height: 500px; overflow-y: auto; background: white; border-radius: 0 0 12px 12px; }
+    </style>
+</head>
+<body>
+
+<div class="controls">
+    <button onclick="resetPositions()">サテライト配置にリセット</button>
+</div>
+
+<div id="board"></div>
+
+<script>
+    const STORAGE_KEY = 'ikizulive_image_accurate_positions';
+
+    // Twitter Widget Script (publish.twitter.com準拠の初期化スクリプト)
+    window.twttr = (function(d, s, id) {
+        var js, fjs = d.getElementsByTagName(s)[0],
+        t = window.twttr || {};
+        if (d.getElementById(id)) return t;
+        js = d.createElement(s);
+        js.id = id;
+        js.src = "https://platform.twitter.com/widgets.js";
+        fjs.parentNode.insertBefore(js, fjs);
+        t._e = [];
+        t.ready = function(f) { t._e.push(f); };
+        return t;
+    }(document, "script", "twitter-wjs"));
+
+    const satConfig = {
+        "浅草": { x: 30 },
+        "梅田": { x: 370 },
+        "福井": { x: 710 },
+        "仙台": { x: 1050 }
+    };
+
+    // 画像に基づいたカラー設定（※目視に近い16進数を選択）
+    const members = [
+        // 浅草サテライト
+        { id: "polka_lion",      name: "高橋 ポルカ", sat: "浅草", color: "#f8e58c", cName: "ラッキーイエロー", dark: false },
+        { id: "My_Mai_Eld",      name: "麻布 麻衣",   sat: "浅草", color: "#6ca9e1", cName: "ロジカルブルー",   dark: false },
+        { id: "G_Akky304250",    name: "五桐 玲",     sat: "浅草", color: "#b6d7a8", cName: "そよかぜ色",       dark: false },
+        { id: "hanabistarmine",  name: "駒形 花火",   sat: "浅草", color: "#ff4d4d", cName: "紅牡丹",           dark: true },
+        // 梅田サテライト
+        { id: "LittlegreenCom",  name: "山田 真緑",   sat: "梅田", color: "#45bc7a", cName: "エコグリーン",     dark: true },
+        { id: "Yukuri_talk",     name: "春宮 ゆくり", sat: "梅田", color: "#c9daf8", cName: "スワンブルー",     dark: false },
+        { id: "Rollie_twinkle",  name: "此花 輝夜",   sat: "梅田", color: "#eb008b", cName: "ローリーローズ",   dark: true },
+        // 福井サテライト
+        { id: "MiracleGoldSP",   name: "金澤 奇跡",   sat: "福井", color: "#fbcce7", cName: "ドリーミィピンク", dark: false },
+        { id: "Noricco_U",       name: "調布 のりこ", sat: "福井", color: "#c27ba0", cName: "オンリーパープル", dark: true },
+        // 仙台サテライト
+        { id: "ShaunTheBunny",   name: "佐々木 翔音", sat: "仙台", color: "#e2e2e2", cName: "ノイジーホワイト", dark: false }
+    ];
+
+    let savedPositions = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    const board = document.getElementById('board');
+    const satCount = { "浅草": 0, "梅田": 0, "福井": 0, "仙台": 0 };
+
+// (前略: members配列やsavedPositionsの定義はそのまま)
+
+    members.forEach((m) => {
+        const card = document.createElement('div');
+        card.className = 'member-card';
+        card.style.borderColor = m.color;
+
+        const pos = savedPositions[m.id] || {
+            x: satConfig[m.sat].x,
+            y: 80 + (satCount[m.sat] * 580)
+        };
+        satCount[m.sat]++;
+
+        card.style.left = pos.x + 'px';
+        card.style.top = pos.y + 'px';
+
+        card.innerHTML = `
+            <div class="handle ${m.dark ? 'dark-text' : ''}" style="background-color: ${m.color}">
+                <span class="satellite-label">【${m.sat}サテライト】</span>
+                ${m.name}
+            </div>
+            <div class="timeline-wrapper" id="timeline-${m.id}">
+                <a class="twitter-timeline-link" 
+                   href="https://twitter.com/${m.id}">
+                   Tweets by ${m.id}
+                </a>
+            </div>
+        `;
+        board.appendChild(card);
+
+        const draggie = new Draggabilly(card, { handle: '.handle' });
+        draggie.on('dragEnd', function() {
+            savedPositions[m.id] = { x: this.position.x, y: this.position.y };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(savedPositions));
+        });
+    });
+
+    twttr.ready(function (twttr) {
+        members.forEach((m, index) => {
+            setTimeout(() => {
+                const container = document.getElementById(`timeline-${m.id}`);
+                const fallbackLink = container.querySelector('.twitter-timeline-link');
+                
+                twttr.widgets.createTimeline(
+                    { sourceType: 'profile', screenName: m.id },
+                    container,
+                    { height: 500, theme: 'light', chrome: 'noheader nofooter' }
+                ).then(function (el) {
+                    // 成功したらフォールバックのリンクを非表示にする
+                    if(fallbackLink) fallbackLink.style.display = 'none';
+                });
+            }, index * 1500); // 1.5秒間隔で読み込み（API制限対策）
+        });
+    });
+
+    function resetPositions() {
+        if(confirm('初期配置に戻しますか？')) {
+            localStorage.removeItem(STORAGE_KEY);
+            location.reload();
+        }
+    }
+</script>
+</body>
+</html>
