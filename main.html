@@ -39,7 +39,21 @@
 
 <script>
     const STORAGE_KEY = 'ikizulive_image_accurate_positions';
-    
+
+    // Twitter Widget Script (publish.twitter.com準拠の初期化スクリプト)
+    window.twttr = (function(d, s, id) {
+        var js, fjs = d.getElementsByTagName(s)[0],
+        t = window.twttr || {};
+        if (d.getElementById(id)) return t;
+        js = d.createElement(s);
+        js.id = id;
+        js.src = "https://platform.twitter.com/widgets.js";
+        fjs.parentNode.insertBefore(js, fjs);
+        t._e = [];
+        t.ready = function(f) { t._e.push(f); };
+        return t;
+    }(document, "script", "twitter-wjs"));
+
     const satConfig = {
         "浅草": { x: 30 },
         "梅田": { x: 370 },
@@ -90,12 +104,9 @@
                 <span class="satellite-label">【${m.sat}サテライト】</span>
                 ${m.name}
             </div>
-            <div class="timeline-wrapper">
-                <a class="twitter-timeline" 
-                   data-height="500" 
-                   data-theme="light" 
-                   data-chrome="noheader nofooter" 
-                   href="https://twitter.com/${m.id}?ref_src=twsrc%5Etfw">
+            <div class="timeline-wrapper" id="timeline-${m.id}">
+                <a class="twitter-timeline-link" 
+                   href="https://twitter.com/${m.id}">
                    Tweets by ${m.id}
                 </a>
             </div>
@@ -109,15 +120,23 @@
         });
     });
 
-    // --- ここが重要：動的に追加した要素をウィジェットとしてレンダリングさせる ---
-    window.onload = function() {
-        if (window.twttr) {
-            window.twttr.widgets.load(
-                document.getElementById('board')
-            );
-        }
-    };
-    // -----------------------------------------------------------------------
+    twttr.ready(function (twttr) {
+        members.forEach((m, index) => {
+            setTimeout(() => {
+                const container = document.getElementById(`timeline-${m.id}`);
+                const fallbackLink = container.querySelector('.twitter-timeline-link');
+                
+                twttr.widgets.createTimeline(
+                    { sourceType: 'profile', screenName: m.id },
+                    container,
+                    { height: 500, theme: 'light', chrome: 'noheader nofooter' }
+                ).then(function (el) {
+                    // 成功したらフォールバックのリンクを非表示にする
+                    if(fallbackLink) fallbackLink.style.display = 'none';
+                });
+            }, index * 1500); // 1.5秒間隔で読み込み（API制限対策）
+        });
+    });
 
     function resetPositions() {
         if(confirm('初期配置に戻しますか？')) {
@@ -126,6 +145,5 @@
         }
     }
 </script>
-<script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 </body>
 </html>
